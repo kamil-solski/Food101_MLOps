@@ -1,0 +1,104 @@
+# ML model binaries
+*.pt
+*.onnx
+*.onnx.data
+
+# Other
+initdb/
+outputs/
+.vscode/
+.pytest_cache/
+.vscode/
+.todo.txt
+
+# Python
+__pycache__/
+*.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# Jupyter
+.ipynb_checkpoints
+*.ipynb_checkpoints
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Data files
+Data/
+*.csv
+*.parquet
+data/offline_store/*.parquet
+data/feature_repo_data/*.db
+
+# MLflow
+experiments/
+mlartifacts/
+
+# Ignore Feast metadata
+feast_repo/.feast/
+
+# Ignore data folder contents, but keep folders themselves
+feast_repo/data/feature_repo_data/*
+!feast_repo/data/feature_repo_data/.gitkeep
+
+feast_repo/data/offline_store/*
+!feast_repo/data/offline_store/.gitkeep
+
+# Ignore local databases
+*.db
+*.sqlite
+
+# Docker
+platform/infrastructure/.env
+
+# Airflow
+airflow/logs/
+airflow/*.pid
+airflow/*.log
+airflow/*.cfg
+
+# Plots
+*.png
+!combined_roc.png
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
