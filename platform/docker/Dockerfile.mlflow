@@ -1,0 +1,22 @@
+# Dockerfile.mlflow (lightweight version)
+FROM python:3.10-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install only MLflow — pinned to match the version resolved in uv.lock.
+RUN pip install --no-cache-dir "mlflow==3.12.0"
+
+# Set working directory
+WORKDIR /app
+
+# Expose MLflow UI port
+EXPOSE 5000
+
+# Set MLflow tracking URI
+ENV MLFLOW_TRACKING_URI=file:///app/experiments/mlruns
+
+# Start MLflow UI
+CMD ["mlflow", "ui", "--host", "0.0.0.0", "--port", "5000", "--backend-store-uri", "file:///app/experiments/mlruns"]

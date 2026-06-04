@@ -1,0 +1,26 @@
+# GPU override — use alongside the base compose file to enable NVIDIA GPU support.
+#
+# Only the train image has a GPU variant. Inference is ONNX Runtime CPU and does
+# not benefit from a GPU here, so it is intentionally absent from this override.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml build train
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml run --rm train
+#
+# Requires:
+#   - NVIDIA GPU with drivers installed
+#   - nvidia-container-toolkit installed on the host
+
+services:
+  train:
+    build:
+      args:
+        USE_CUDA: "true"
+        TORCH_EXTRA: "cu126"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

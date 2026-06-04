@@ -1,0 +1,92 @@
+x-common-env: &common-env
+  MLFLOW_TRACKING_URI: "file:///app/experiments/mlruns"
+  # serving-specific (used by loader):
+  MODEL_REGISTRY_NAME: "best_model"
+  PREFERRED_ALIAS: "champion"  # inference serves ONLY this alias; no fallback
+
+services:
+  train:
+    build:
+      context: ../..
+      dockerfile: platform/docker/Dockerfile.train
+    image: food101/train:latest
+    environment:
+      <<: *common-env
+      MODE: train
+    # GPU support added via docker-compose.gpu.yml override
+    volumes:
+      - ../..:/app                 # repo root → /app, so Data/ is available at /app/Data
+      - ../../experiments:/app/experiments
+    working_dir: /app
+    stdin_open: true
+    tty: true
+
+  inference:
+    build:
+      context: ../..
+      dockerfile: platform/docker/Dockerfile.serve
+    image: food101/serve:latest
+    environment:
+      <<: *common-env
+      MODE: serve
+    ports:
+      - "8000:8000"  # allow for inference for both host and docker container runs
+    # Inference is ONNX-Runtime CPU only — no GPU override needed.
+    volumes:
+      - ../..:/app                 # repo root → /app, so Data/ is available at /app/Data
+      - ../../experiments:/app/experiments
+    working_dir: /app
+
+  jupyter:
+    build:
+      context: ../..
+      dockerfile: platform/docker/Dockerfile.jupyter
+    image: food101/jupyter:latest
+    environment:
+      <<: *common-env
+    ports:
+      - "8888:8888"
+    volumes:
+      - ../../notebooks:/app/notebooks   # live-edit notebooks without rebuilding
+      - ../../Data:/app/Data
+      - ../../experiments:/app/experiments
+    working_dir: /app
+
+  mlflow:
+    build:
+      context: ../..
+      dockerfile: platform/docker/Dockerfile.mlflow
+    image: food101/mlflow:latest
+    ports:
+      - "5000:5000"
+    volumes:
+      - ../../experiments:/app/experiments
+
+# Network configuration:
+# - Standalone (default): Compose creates shared_network automatically.
+# - With external Flask website: run `docker network create shared_network` first,
+#   then set `external: true` below.
+networks:
+  default:
+    name: shared_network
+    driver: bridge
+    external: true  # uncomment when connecting to an external service (e.g., Flask website)
+
+# Data: place your dataset in the repo's Data/ folder; it is mounted into /app/Data
+# automatically via the repo-root bind mount. No .env / DATA_DIR setup needed.
+
+# How to build (from platform/infrastructure):
+# CPU only (default):
+#   docker compose build train inference jupyter mlflow
+#
+# With GPU (requires nvidia-container-toolkit on host):
+#   Only the train image has a GPU variant; inference/jupyter stay CPU.
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml build train
+
+# End-to-end system usage:
+# CPU: docker compose run --rm train
+# GPU: docker compose -f docker-compose.yml -f docker-compose.gpu.yml run --rm train
+# docker compose up -d inference       # FastAPI at http://localhost:8000
+# docker compose up -d jupyter         # Jupyter Lab at http://localhost:8888
+# docker compose up -d mlflow          # MLflow UI at http://localhost:5000
+

@@ -1,0 +1,19 @@
+# Loading model
+model_registry_name: "best_model"
+preferred_alias: "champion"  # inference serves ONLY this alias; no fallback
+
+# Inference config
+runtime: "ort"
+providers: ["CPUExecutionProvider"]  # we could switch to "CUDAExecutionProvider", "OpenVINOExecutionProvider" etc. if needed
+
+image_size: 64
+top_k: 5  # useful when there are too many classes
+output_is_logits: true
+
+# Preprocessing
+preprocess:
+  scale_to_unit: true
+  normalize: false
+  mean: [0.0, 0.0, 0.0]
+  std: [1.0, 1.0, 1.0]
+channels: "rgb"

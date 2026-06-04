@@ -1,0 +1,71 @@
+# Multi-stage training image.
+#   CPU (default): docker build -f platform/docker/Dockerfile.train -t food101/train:latest .
+#   GPU:           docker build --build-arg USE_CUDA=true --build-arg TORCH_EXTRA=cu126 \
+#                    -f platform/docker/Dockerfile.train -t food101/train:latest .
+ARG USE_CUDA=false
+
+# ── Base variants ─────────────────────────────────────────────────────────────
+# Builder AND runtime derive from the SAME base per variant so the /opt/venv
+# interpreter path stays valid when the venv is copied between stages.
+#   CPU: python:3.10-slim  (~150 MB)   GPU: nvidia/cuda:12.6 runtime + python3.10
+FROM python:3.10-slim AS base-false
+
+FROM nvidia/cuda:12.6.0-runtime-ubuntu22.04 AS base-true
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.10 python3.10-dev \
+ && rm -rf /var/lib/apt/lists/* \
+ && ln -sf /usr/bin/python3.10 /usr/local/bin/python3 \
+ && ln -sf /usr/bin/python3.10 /usr/local/bin/python
+
+# ── Builder: install deps into /opt/venv, then discard build tools ────────────
+FROM base-${USE_CUDA} AS builder
+ARG TORCH_EXTRA=cpu
+ENV DEBIAN_FRONTEND=noninteractive \
+    UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=1 \
+    # venv lives OUTSIDE /app so the compose bind-mount of the repo onto /app
+    # at runtime does not shadow it.
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    PATH="/opt/venv/bin:$PATH"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential git \
+ && rm -rf /var/lib/apt/lists/*
+
+# uv binary (pinned), copied from the official distroless image.
+COPY --from=ghcr.io/astral-sh/uv:0.10.9 /uv /bin/uv
+
+WORKDIR /app
+
+# Dependency manifests first → this layer is cached unless deps change.
+COPY pyproject.toml uv.lock ./
+
+# Train deps only; torch/torchvision come from the cpu (or cu126) extra.
+# --no-install-project: the package is run from the mounted source via PYTHONPATH.
+RUN uv sync --frozen --no-install-project --no-default-groups \
+    --group train --extra ${TORCH_EXTRA}
+
+# ── Runtime: clean base + venv, no build-essential, no uv ─────────────────────
+FROM base-${USE_CUDA} AS runtime
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    MODE=train \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    PATH="/opt/venv/bin:$PATH"
+
+WORKDIR /app
+
+# libgomp1: OpenMP runtime required by scikit-learn wheels.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgomp1 \
+ && rm -rf /var/lib/apt/lists/*
+
+# Copy the resolved venv; build toolchain and uv are left behind.
+COPY --from=builder /opt/venv /opt/venv
+
+# Source is also bind-mounted at runtime; baking it keeps the image self-contained.
+COPY . .
+RUN chmod +x scripts/entrypoint.sh
+
+# Selects mode via $MODE (train)
+CMD ["bash", "scripts/entrypoint.sh"]

@@ -1,0 +1,115 @@
+[project]
+name = "food101"
+version = "0.1.0"
+description = "Tutorial ML pipeline for simple computer vision task"
+authors = [
+    {name = "Kamil Solski", email = "kamil.solski@onet.pl"}
+]
+readme = "README.md"
+requires-python = ">=3.10,<4.0"
+
+# Core — installed in every container.
+# Only utilities used by BOTH the train and serve paths belong here:
+#   numpy  — tensor/array math everywhere
+#   pyyaml — src/utils/paths.py config loading (imported by the serve path too)
+#   mlflow — model registry: train logs models, serve loads them
+dependencies = [
+    "numpy>=1.26.0,<3.0.0",
+    "pyyaml>=6.0.0,<7.0.0",
+    "mlflow>=3.1.1,<4.0.0",
+]
+
+# ── PyTorch CPU / CUDA variants (PEP 621 extras) ──────────────────────────────
+# torch/torchvision are pulled from the dedicated PyTorch index so CPU builds get
+# the slim CPU wheels (no bundled ~3 GB of nvidia-*-cu12 libs) and GPU builds get
+# the cu126 wheels matching the nvidia/cuda:12.6 base image.
+#   CPU build:  uv sync ... --extra cpu
+#   GPU build:  uv sync ... --extra cu126
+[project.optional-dependencies]
+cpu = [
+    "torch>=2.7.1,<3.0.0",
+    "torchvision>=0.22.1,<0.23.0",
+]
+cu126 = [
+    "torch>=2.7.1,<3.0.0",
+    "torchvision>=0.22.1,<0.23.0",
+]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+# ── Dependency groups (PEP 735) ────────────────────────────────────────────────
+# uv install commands per container:
+#   train     : uv sync --no-default-groups --group train --extra cpu      (or --extra cu126)
+#   inference : uv sync --no-default-groups --group serve
+#   jupyter   : uv sync --no-default-groups --group train --group jupyter --extra cpu
+#   CI / test : uv sync --group dev
+[dependency-groups]
+
+# ── Model serving (inference_api) ──────────────────────────────────────────────
+# ONNX-Runtime based — deliberately NO torch: the serve path imports onnxruntime,
+# not torch, so the inference image stays lean.
+# onnxruntime <1.24 keeps cp310 wheels; the base image ships Python 3.10.
+serve = [
+    "fastapi>=0.116.1,<0.117.0",
+    "uvicorn>=0.35.0,<0.36.0",
+    "onnxruntime>=1.22.1,<1.24.0",
+    "python-multipart>=0.0.20,<0.0.21",
+    "pillow>=10.0.0,<12.0.0",
+]
+
+# ── Training pipeline (src/) ───────────────────────────────────────────────────
+# torch/torchvision come from the cpu/cu126 extra, not from here.
+# onnxscript is required by torch.onnx dynamo export that produces the served model.
+train = [
+    "pandas>=2.3.1,<3.0.0",
+    "scikit-learn>=1.5.0,<2.0.0",
+    "matplotlib>=3.10.3,<4.0.0",
+    "tqdm>=4.67.1,<5.0.0",
+    "onnx>=1.18.0,<2.0.0",
+    "onnxscript>=0.4.0,<0.5.0",
+]
+
+# ── Interactive experimentation (jupyter container only) ───────────────────────
+# Extras handy in notebooks but not imported by the train/serve runtime.
+jupyter = [
+    "jupyter>=1.1.1,<2.0.0",
+    "ipykernel>=6.29.5,<7.0.0",
+    "tensorboard>=2.19.0,<3.0.0",
+    "torchinfo>=1.8.0,<2.0.0",
+    "opencv-python>=4.12.0.88,<5.0.0.0",
+]
+
+# ── Testing / CI ───────────────────────────────────────────────────────────────
+# Never installed inside production containers.
+dev = [
+    "pytest>=8.4.2,<9.0.0",
+]
+
+# ── uv: PyTorch index wiring ───────────────────────────────────────────────────
+[tool.uv]
+# cpu and cu126 are mutually exclusive — never resolve both into one environment.
+conflicts = [
+    [{ extra = "cpu" }, { extra = "cu126" }],
+]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cu126", extra = "cu126" },
+]
+torchvision = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cu126", extra = "cu126" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
