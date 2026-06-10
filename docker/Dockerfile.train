@@ -1,7 +1,7 @@
 # Multi-stage training image.
-#   CPU (default): docker build -f platform/docker/Dockerfile.train -t food101/train:latest .
+#   CPU (default): docker build -f docker/Dockerfile.train -t food101/train:latest .
 #   GPU:           docker build --build-arg USE_CUDA=true --build-arg TORCH_EXTRA=cu126 \
-#                    -f platform/docker/Dockerfile.train -t food101/train:latest .
+#                    -f docker/Dockerfile.train -t food101/train:latest .
 ARG USE_CUDA=false
 
 # ── Base variants ─────────────────────────────────────────────────────────────

@@ -95,15 +95,16 @@ class TestGetPaths:
         assert paths["DATASET_DIR"] == dataset_dir
 
     def test_get_paths_without_fold(self, temp_project):
-        """Path generation for test set."""
+        """Path generation for test set (fold=None → simple split mode)."""
         project_root, config_file = temp_project
-        
+
         paths = get_paths(config_path=config_file, fold=None)
-        
+
+        dataset_dir = project_root / "Data" / "test_dataset"
         assert paths["FOLD_DIR"] is None
-        assert paths["TRAIN_DIR"] is None
-        assert paths["VAL_DIR"] is None
-        assert paths["TEST_DIR"] == project_root / "Data" / "test_dataset" / "test"
+        assert paths["TRAIN_DIR"] == dataset_dir / "train"
+        assert paths["VAL_DIR"] == dataset_dir / "val"
+        assert paths["TEST_DIR"] == dataset_dir / "test"
 
     def test_get_paths_with_model_name(self, temp_project):
         """Model checkpoint paths."""

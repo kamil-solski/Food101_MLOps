@@ -3,7 +3,7 @@
 # Only the train image has a GPU variant. Inference is ONNX Runtime CPU and does
 # not benefit from a GPU here, so it is intentionally absent from this override.
 #
-# Usage:
+# Usage (from project root):
 #   docker compose -f docker-compose.yml -f docker-compose.gpu.yml build train
 #   docker compose -f docker-compose.yml -f docker-compose.gpu.yml run --rm train
 #

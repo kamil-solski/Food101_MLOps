@@ -17,8 +17,7 @@ It is impossible to design an entire system in your head. Many functions and dec
   - Model versioning
   - Shadow / A/B testing
   - Full CI/CD pipeline
-  - Model and data monitoring (infernce time, data/concept drift) - with retraining mechanism (notifications not automatic)
-  - Features stores
+  - Model and data monitoring (infernce time, drift monitoring) - with retraining mechanism (notifications not automatic)
 
 * Level 3 (Enterprise-grade, scalable, reproducible AI systems):
   - Kubernetes deployment
@@ -149,20 +148,15 @@ Project structure:
 │
 ├── scripts/                        # DevOps & automation scripts
 │   ├── deploy_model.sh             # Copy ONNX model to Flask app folder
-│   ├── run_local_mlflow.sh         # Start MLFlow UI locally
 │   └── entrypoint.sh               # Entrypoint script for Docker modes
 │
-├── platform/                      # containers, orchestration, CI/CD infra, monitoring hooks
-│   ├── infrastructure/              # Infra and pipeline configs
-│   │   ├── github-actions/          # GitHub Actions YAML workflows
-│   │   │   ├── ml_pipeline.yml      # ML training + model deployment
-│   │   ├── gitlab-ci/               # (Optional) GitLab CI pipeline configs
-│   │   ├── .env
-│   │   └── docker-compose.yml      # Compose for local orchestration
-│   └── docker/                     # Dockerfiles (each multi-stage: builder + slim runtime)
-│       ├── Dockerfile.train        # Training container (torch; CPU or CUDA via build args)
-│       ├── Dockerfile.serve        # FastAPI inference container (ONNX Runtime, CPU, no torch)
-│       └── Dockerfile.mlflow       # MLflow tracking UI (lightweight)
+├── docker/                        # Dockerfiles (each multi-stage: builder + slim runtime)
+│   ├── Dockerfile.train            # Training container (torch; CPU or CUDA via build args)
+│   ├── Dockerfile.serve            # FastAPI inference container (ONNX Runtime, CPU, no torch)
+│   ├── Dockerfile.jupyter          # Jupyter Lab image
+│   └── Dockerfile.mlflow           # MLflow tracking UI (lightweight)
+├── docker-compose.yml              # Compose for local orchestration
+├── docker-compose.gpu.yml          # GPU override for the train service
 │
 ├── logs/                             # Local dev logs (optional gitignored)
 │
@@ -215,12 +209,8 @@ Place your dataset in the project's `Data/` folder. The repo root is bind-mounte
 the containers at `/app`, so `Data/` is automatically available at `/app/Data` — no `.env`
 setup is required. (If your dataset lives elsewhere on disk, symlink it as `Data/`.)
 
-Build Dockerfiles (while being inside project root folder):
-1) 
-```bash
-cd platform/infrastructure
-```
-2) build the images (CPU by default):
+Build images (from project root):
+1) build the images (CPU by default):
 ```bash
 docker compose build train inference mlflow
 ```
@@ -228,14 +218,12 @@ For a CUDA training image instead (inference stays CPU/ONNX):
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.gpu.yml build train
 ```
-3) because we will integrate with exteranl project flask we need to manually create network
+2) because we will integrate with external project flask we need to manually create network
 ```bash
-docker network create shared_network 
+docker network create shared_network
 ```
-In Dockerfile we execute custom scipt which specify MODE of run:
+In Dockerfile we execute custom script which specifies MODE of run:
 CMD ["bash", "scripts/entrypoint.sh"]
-
-!Obviously you run docker compose commands from place where docker-compose.yml is located!
 
 WARRNING!!! docker and host got completly separate logging, so for example model trained on host won't be used when running docker inference.
 
@@ -429,6 +417,16 @@ On level 1 of project complexity we won't use database for mlflow, since we don'
 
 ### Inference
 To check how it look like localy you can download Test Website repo that uses flask and nginx. For inference OpenCV is used because it got good support for ONNX models (they use optimized runtimes), because inference efficiency in many cases is crucial. 
+
+### Tests of end-to-end system
+#### Full suite (same as CI):
+Run localy
+```bash
+uv sync --group dev --group train --group serve --extra cpu  # ensure packages are installed
+
+uv run pytest tests/unit/               # ~52 unit tests
+uv run pytest tests/integration/ -m integration  # 21 integration tests
+```
 
 ### End
 Once you understand how the code works and why it was designed this way, you can move on to analyzing my other projects, where the process is more practical and complete (it creates the life cycle of a working artificial intelligence system).

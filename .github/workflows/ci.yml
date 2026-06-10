@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        # dev  : pytest, pytest-cov, httpx, pillow
+        # train: torch models + sklearn, pandas, matplotlib for evaluation tests
+        # serve: fastapi, onnxruntime, pillow for predictor/postprocessing tests
+        # cpu  : CPU-only torch/torchvision wheels (slim, no CUDA libs)
+        run: uv sync --group dev --group train --group serve --extra cpu
+
+      - name: Run unit tests
+        run: >
+          uv run pytest tests/unit/
+          --cov=src
+          --cov=inference_api
+          --cov-report=xml
+          --cov-report=term-missing
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    # Run integration tests after unit tests pass
+    needs: unit-tests
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: uv sync --group dev --group train --group serve --extra cpu
+
+      - name: Run integration tests
+        run: uv run pytest tests/integration/ -m integration

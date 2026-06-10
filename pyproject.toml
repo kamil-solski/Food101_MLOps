@@ -83,12 +83,19 @@ jupyter = [
 
 # ── Testing / CI ───────────────────────────────────────────────────────────────
 # Never installed inside production containers.
+# Full test install: uv sync --group dev --group train --group serve --extra cpu
 dev = [
     "pytest>=8.4.2,<9.0.0",
+    "pytest-cov>=6.0.0,<7.0.0",
+    "httpx>=0.27.0,<0.29.0",
+    "pillow>=10.0.0,<12.0.0",
 ]
 
 # ── uv: PyTorch index wiring ───────────────────────────────────────────────────
 [tool.uv]
+# This is an end-to-end system, not a distributable library.
+# Prevents uv from trying to build/install the project itself as a package.
+package = false
 # cpu and cu126 are mutually exclusive — never resolve both into one environment.
 conflicts = [
     [{ extra = "cpu" }, { extra = "cu126" }],
@@ -102,6 +109,17 @@ torch = [
 torchvision = [
     { index = "pytorch-cpu", extra = "cpu" },
     { index = "pytorch-cu126", extra = "cu126" },
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+markers = [
+    "integration: marks tests as integration tests (slower, require full stack)",
+    "slow: marks tests as slow-running",
 ]
 
 [[tool.uv.index]]

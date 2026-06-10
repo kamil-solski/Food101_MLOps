@@ -34,7 +34,7 @@ async def predict(file: UploadFile = File(...)):
     t0 = time.time()
     
     probs = run_inference_ort(SESSION, META, img_bytes)
-    idx = topk_indices(probs, int(META.get("topk", 5)))
+    idx = topk_indices(probs, int(META.get("top_k", 5)))
     preds = map_indices_to_labels(idx, probs, META.get("classes"))
     
     latency_ms = round((time.time() - t0) * 1000.0, 2)

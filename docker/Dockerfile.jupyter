@@ -1,5 +1,5 @@
 # Multi-stage Jupyter Lab image — full environment for interactive experimentation.
-#   docker build -f platform/docker/Dockerfile.jupyter -t food101/jupyter:latest .
+#   docker build -f docker/Dockerfile.jupyter -t food101/jupyter:latest .
 
 # ── Builder: install all groups into /opt/venv ────────────────────────────────
 FROM python:3.10-slim AS builder
